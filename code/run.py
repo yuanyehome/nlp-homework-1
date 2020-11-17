@@ -115,7 +115,7 @@ class Model:
     def _update_params(self, features, labels, coef):
         for i, token_features in enumerate(features):
             for feature in token_features:
-                self.weights.update_weights(feature + str(labels[i]), coef)
+                self.weights.update_weights('%s:%s' % (feature, str(labels[i])), coef)
         for i in range(len(features) - 1):
             self.weights.update_weights(
                 '%s:%s' % (labels[i], labels[i + 1]), coef)
