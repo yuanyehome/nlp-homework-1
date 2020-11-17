@@ -35,6 +35,7 @@ def read_labeled_data(file_path):
 
 
 def load_weights(file_path):
+    print('Loading weights from %s' % file_path)
     return pickle.load(open(file_path, 'rb'))
 
 
@@ -119,10 +120,10 @@ class Model:
         return res
 
     @staticmethod
-    def _evaluate(res, devset, labels):
+    def evaluate(res, sentences, labels):
         pred_words = [Model._gen_loc_words(word.split()) for word in res]
         refs_words = [Model._gen_loc_words(Model._gen_words(sentence, label_seq))
-                      for sentence, label_seq in zip(devset, labels)]
+                      for sentence, label_seq in zip(sentences, labels)]
         correct, pred_num, refs_num = 0, 0, 0
         for pred, ref in zip(pred_words, refs_words):
             pred = set(pred)
@@ -134,7 +135,7 @@ class Model:
         recall = correct / refs_num
         f1 = 2 * precision * recall / (precision + recall)
         print("Dev num: %d; precision: %.4f; recall: %.4f; F1-score: %.4f" % (
-            len(devset), precision, recall, f1
+            len(sentences), precision, recall, f1
         ))
         return f1
 
@@ -206,14 +207,14 @@ class Model:
                                               1-i][max_value_choice_pair[1]]
         return list(reversed(path))
 
-    def predict(self, sentences, out_path):
+    def predict(self, sentences):
         self.weights.prepare_predict_weights()
         res = [self._decode(x) for x in tqdm(sentences, desc="Predicting")]
         self.weights.reset_weights()
-        with open(out_path, 'w') as f:
-            f.write('\n'.join(res))
+        return res
 
     def save_weights(self, file_path):
+        print('Best F1 score is %.4f' % self.best_score)
         with open(file_path, 'wb') as f:
             pickle.dump(self.best_weight, f)
 
@@ -228,11 +229,8 @@ class Model:
                 self.weights.save_history()
             self.weights.final_update_sum()
             if self.do_validation:
-                self.weights.prepare_predict_weights()
-                dev_res = [self._decode(x) for x in tqdm(self.valid_sentences,
-                                                         desc="Predicting for epoch %d" % i)]
-                self.weights.reset_weights()
-                f1 = Model._evaluate(dev_res, self.valid_sentences,
+                dev_res = self.predict(self.valid_sentences)
+                f1 = Model.evaluate(dev_res, self.valid_sentences,
                                 self.valid_labels)
                 if f1 > self.best_score:
                     print('Best model from epoch %d.' % i)
@@ -271,9 +269,16 @@ def main():
         assert args.weights is not None, "No train file or weights provided!"
         weights = load_weights(args.weights)
         model = Model(weights=weights)
+        if args.valid_file:
+            print('Validating for this model...')
+            sentences, labels = read_labeled_data(args.valid_file)
+            res = model.predict(sentences)
+            Model.evaluate(res, sentences, labels)
 
     predict_data, _ = read_labeled_data(args.predict_file)
-    model.predict(predict_data, args.output_path)
+    res = model.predict(predict_data)
+    with open(args.output_path, 'w') as f:
+        f.write('\n'.join(res))
 
 
 if __name__ == "__main__":
