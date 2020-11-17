@@ -86,6 +86,7 @@ class Model:
             )
         self.features, self.ys = None, None
         self.do_validation = False
+        self.best_weight, self.best_score = None, 0
         if trainset:
             self.features, self.ys = \
                 Model._get_features(trainset[0]), trainset[1]
@@ -135,6 +136,7 @@ class Model:
         print("Dev num: %d; precision: %.4f; recall: %.4f; F1-score: %.4f" % (
             len(devset), precision, recall, f1
         ))
+        return f1
 
     @staticmethod
     def _get_features(dataset, no_tqdm=False):
@@ -213,7 +215,7 @@ class Model:
 
     def save_weights(self, file_path):
         with open(file_path, 'wb') as f:
-            pickle.dump(self.weights, f)
+            pickle.dump(self.best_weight, f)
 
     def train(self, epoch_num):
         for i in range(epoch_num):
@@ -230,8 +232,14 @@ class Model:
                 dev_res = [self._decode(x) for x in tqdm(self.valid_sentences,
                                                          desc="Predicting for epoch %d" % i)]
                 self.weights.reset_weights()
-                Model._evaluate(dev_res, self.valid_sentences,
+                f1 = Model._evaluate(dev_res, self.valid_sentences,
                                 self.valid_labels)
+                if f1 > self.best_score:
+                    print('Best model from epoch %d.' % i)
+                    self.best_score = f1
+                    self.best_weight = deepcopy(self.weights)
+            else:
+                self.best_weight = self.weights
 
 
 def main():
@@ -247,7 +255,7 @@ def main():
     parser.add_argument('--weights', type=str,
                         help="The path for saving and loading the weights and features.")
     parser.add_argument('--epoch_num', type=int,
-                        help="Epoch number of training.", default=5)
+                        help="Epoch number of training.", default=10)
     args = parser.parse_args()
 
     if args.train_file:
