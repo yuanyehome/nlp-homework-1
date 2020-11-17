@@ -247,9 +247,9 @@ def main():
     parser.add_argument('--valid_file', type=str,
                         help='Validation data.')
     parser.add_argument('--predict_file', type=str,
-                        required=True, help="The path to test file.")
+                        help="The path to test file.")
     parser.add_argument('--output_path', type=str,
-                        required=True, help="The path to the output file.")
+                        help="The path to the output file.")
     parser.add_argument('--weights', type=str,
                         help="The path for saving and loading the weights and features.")
     parser.add_argument('--epoch_num', type=int,
@@ -275,10 +275,12 @@ def main():
             res = model.predict(sentences)
             Model.evaluate(res, sentences, labels)
 
-    predict_data, _ = read_labeled_data(args.predict_file)
-    res = model.predict(predict_data)
-    with open(args.output_path, 'w') as f:
-        f.write('\n'.join(res))
+    if args.predict_file:
+        assert args.output_path, 'No prediction output specified!'
+        predict_data, _ = read_labeled_data(args.predict_file)
+        res = model.predict(predict_data)
+        with open(args.output_path, 'w') as f:
+            f.write('\n'.join(res))
 
 
 if __name__ == "__main__":
