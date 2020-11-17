@@ -84,9 +84,8 @@ class Model:
             )
         self.features, self.ys = None, None
         if trainset:
-            (self.features, self.all_features), self.ys = \
+            self.features, self.ys = \
                 Model._get_features(trainset[0]), trainset[1]
-            print("All features num: %d" % len(self.all_features))
             self.weights = Weights()
             assert len(self.features) == len(self.ys)
         if weights:
@@ -95,8 +94,6 @@ class Model:
     @staticmethod
     def _get_features(dataset, no_tqdm=False):
         all_features = []
-        flaten_features = ['%d:%d' % (i, j)
-                           for i in range(4) for j in range(4)]
         for x in tqdm(dataset, desc="Generating features", disable=no_tqdm):
             curr_features = []
             for i in range(len(x)):
@@ -108,9 +105,8 @@ class Model:
                 _features = ['1' + x_0, '2' + x_l1, '3' + x_r1, '4' + x_l2 + x_l1,
                              '5' + x_l1 + x_0, '6' + x_0 + x_r1, '7' + x_r1 + x_r2]
                 curr_features.append(_features)
-                flaten_features += ['%s:%s' % (feature, str(label)) for feature in _features for label in range(4)]
             all_features.append(curr_features)
-        return all_features, flaten_features
+        return all_features
 
     def train(self, epoch_num):
         for i in range(epoch_num):
