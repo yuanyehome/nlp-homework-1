@@ -40,27 +40,36 @@ def load_weights(file_path):
 
 
 class Weights:
-    def __init__(self, features):
-        self._idx_to_feature = features
-        self._feature_to_idx = {feature: idx for idx, feature in enumerate(features)}
-        self._weights = np.zeros(len(features))
-        self._sum_weights = np.zeros(len(features))
+    def __init__(self):
+        self._weights = {}
+        self._sum_weights = {}
+        self._curr_steps = {}
         self._step = 0
         self._tmp_weights = None
 
+    def final_update_sum(self):
+        for key in self._weights.keys():
+            self._sum_weights.setdefault(key, 0)
+            self._sum_weights[key] += self._weights[key] * (self._step - self._curr_steps.get(key, 0))
+            self._curr_steps[key] = self._step
+
     def update_weights(self, key, value):
-        self._weights[self._feature_to_idx[key]] += value
+        self._weights.setdefault(key, 0)
+        self._sum_weights.setdefault(key, 0)
+        self._sum_weights[key] += self._weights[key] * (self._step - self._curr_steps.get(key, 0))
+        self._curr_steps[key] = self._step
+        self._weights[key] += value
 
     def save_history(self):
-        self._sum_weights += self._weights
         self._step += 1
 
     def get(self, key):
-        return self._weights[self._feature_to_idx[key]]
+        self._weights.setdefault(key, 0)
+        return self._weights[key]
 
     def prepare_predict_weights(self):
         self._tmp_weights = deepcopy(self._weights)
-        self._weights = self._sum_weights / self._step
+        self._weights = {key: self._sum_weights[key] / self._step for key in self._sum_weights.keys()}
 
     def reset_weights(self):
         self._weights = deepcopy(self._tmp_weights)
@@ -78,7 +87,7 @@ class Model:
             (self.features, self.all_features), self.ys = \
                 Model._get_features(trainset[0]), trainset[1]
             print("All features num: %d" % len(self.all_features))
-            self.weights = Weights(self.all_features)
+            self.weights = Weights()
             assert len(self.features) == len(self.ys)
         if weights:
             self.weights = weights
@@ -111,6 +120,7 @@ class Model:
                     self._update_params(features, pred_labels, -1)
                     self._update_params(features, labels, 1)
                 self.weights.save_history()
+            self.weights.final_update_sum()
 
     def _update_params(self, features, labels, coef):
         for i, token_features in enumerate(features):
@@ -169,7 +179,7 @@ class Model:
         recall = correct / refs_num
         f1 = 2 * precision * recall / (precision + recall)
         print("Dev num: %d; precision: %.3f; recall: %.3f; F1-score: %.3f" % (
-            len(devset), precision, recall
+            len(devset), precision, recall, f1
         ))
 
     def _decode(self, x):
