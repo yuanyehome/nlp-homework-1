@@ -264,7 +264,7 @@ def main():
     parser.add_argument('--weights', type=str,
                         help="The path for saving and loading the weights and features.")
     parser.add_argument('--epoch_num', type=int,
-                        help="Epoch number of training.", default=10)
+                        help="Epoch number of training.", default=20)
     parser.add_argument('--checkpoint', type=str,
                         help="Path for saving and load checkpoint")
     args = parser.parse_args()
