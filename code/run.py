@@ -91,8 +91,9 @@ class Model:
         self.checkpoint = checkpoint
         self.start_epoch = 0
         if trainset:
-            self.features, self.ys = \
+            (self.features, self.all_features), self.ys = \
                 Model._get_features(trainset[0]), trainset[1]
+            print("Feature num: %d" % len(self.all_features))
             self.weights = Weights()
             assert len(self.features) == len(self.ys)
         if validset:
@@ -148,6 +149,7 @@ class Model:
 
     @staticmethod
     def _get_features(dataset, no_tqdm=False):
+        sentence_features = []
         all_features = []
         for x in tqdm(dataset, desc="Generating features", disable=no_tqdm):
             curr_features = []
@@ -160,8 +162,11 @@ class Model:
                 _features = ['1' + x_0, '2' + x_l1, '3' + x_r1, '4' + x_l2 + x_l1,
                              '5' + x_l1 + x_0, '6' + x_0 + x_r1, '7' + x_r1 + x_r2]
                 curr_features.append(_features)
-            all_features.append(curr_features)
-        return all_features
+                all_features += ['%s:%s' % (feature, str(label))
+                                 for feature in _features
+                                 for label in range(4)]
+            sentence_features.append(curr_features)
+        return sentence_features, set(all_features)
 
     def _update_params(self, features, labels, coef):
         for i, token_features in enumerate(features):
@@ -176,7 +181,7 @@ class Model:
         """
         Perhaps add more strict grammar?
         """
-        features = self._get_features([x], no_tqdm=True)[0]
+        features = self._get_features([x], no_tqdm=True)[0][0]
         labels = self._predict_one(features)
         word = ""
         words = []
