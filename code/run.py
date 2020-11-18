@@ -80,7 +80,7 @@ class Weights:
 
 
 class Model:
-    def __init__(self, trainset=None, weights=None, validset=None):
+    def __init__(self, trainset=None, weights=None, validset=None, checkpoint=None):
         if not (trainset or weights):
             raise ValueError(
                 "Error in model initialize: no trainset or weights provided!"
@@ -88,6 +88,7 @@ class Model:
         self.features, self.ys = None, None
         self.do_validation = False
         self.best_weight, self.best_score = None, 0
+        self.checkpoint = checkpoint
         if trainset:
             self.features, self.ys = \
                 Model._get_features(trainset[0]), trainset[1]
@@ -98,6 +99,10 @@ class Model:
             self.do_validation = True
         if weights:
             self.weights = weights
+        if self.checkpoint and os.path.exists(self.checkpoint):
+            ckpt = pickle.load(open(self.checkpoint, "rb"))
+            self.weights, self.best_score, self.best_weight = \
+                ckpt['model'], ckpt['best_score'], ckpt['best_model']
 
     @staticmethod
     def _gen_words(sentence, labels):
@@ -231,13 +236,19 @@ class Model:
             if self.do_validation:
                 dev_res = self.predict(self.valid_sentences)
                 f1 = Model.evaluate(dev_res, self.valid_sentences,
-                                self.valid_labels)
+                                    self.valid_labels)
                 if f1 > self.best_score:
                     print('Best model from epoch %d.' % i)
                     self.best_score = f1
                     self.best_weight = deepcopy(self.weights)
             else:
                 self.best_weight = self.weights
+            if self.checkpoint:
+                pickle.dump({
+                    "model": self.weights,
+                    "best_score": self.best_score,
+                    "best_model": self.best_weight
+                }, open(self.checkpoint, "wb"))
 
 
 def main():
@@ -254,6 +265,8 @@ def main():
                         help="The path for saving and loading the weights and features.")
     parser.add_argument('--epoch_num', type=int,
                         help="Epoch number of training.", default=10)
+    parser.add_argument('--checkpoint', type=str,
+                        help="Path for saving and load checkpoint")
     args = parser.parse_args()
 
     if args.train_file:
@@ -262,7 +275,8 @@ def main():
             validset = read_labeled_data(args.valid_file)
         else:
             validset = None
-        model = Model(trainset=trainset, validset=validset)
+        model = Model(trainset=trainset, validset=validset,
+                      checkpoint=args.checkpoint)
         model.train(epoch_num=args.epoch_num)
         model.save_weights(args.weights)
     else:
