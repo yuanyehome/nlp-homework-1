@@ -89,6 +89,7 @@ class Model:
         self.do_validation = False
         self.best_weight, self.best_score = None, 0
         self.checkpoint = checkpoint
+        self.start_epoch = 0
         if trainset:
             self.features, self.ys = \
                 Model._get_features(trainset[0]), trainset[1]
@@ -103,6 +104,7 @@ class Model:
             ckpt = pickle.load(open(self.checkpoint, "rb"))
             self.weights, self.best_score, self.best_weight = \
                 ckpt['model'], ckpt['best_score'], ckpt['best_model']
+            self.start_epoch = ckpt['curr_epoch'] + 1
 
     @staticmethod
     def _gen_words(sentence, labels):
@@ -224,7 +226,7 @@ class Model:
             pickle.dump(self.best_weight, f)
 
     def train(self, epoch_num):
-        for i in range(epoch_num):
+        for i in range(self.start_epoch, self.start_epoch + epoch_num):
             for features, labels in tqdm(list(zip(self.features, self.ys)),
                                          desc="Training for epoch %d" % i):
                 pred_labels = self._predict_one(features)
@@ -244,11 +246,14 @@ class Model:
             else:
                 self.best_weight = self.weights
             if self.checkpoint:
+                print('Saving checkpoint')
                 pickle.dump({
                     "model": self.weights,
                     "best_score": self.best_score,
-                    "best_model": self.best_weight
+                    "best_model": self.best_weight,
+                    "curr_epoch": i
                 }, open(self.checkpoint, "wb"))
+                print('Done')
 
 
 def main():
@@ -264,7 +269,7 @@ def main():
     parser.add_argument('--weights', type=str,
                         help="The path for saving and loading the weights and features.")
     parser.add_argument('--epoch_num', type=int,
-                        help="Epoch number of training.", default=20)
+                        help="Epoch number of training.", default=50)
     parser.add_argument('--checkpoint', type=str,
                         help="Path for saving and load checkpoint")
     args = parser.parse_args()
