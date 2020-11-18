@@ -283,7 +283,8 @@ def main():
         model = Model(trainset=trainset, validset=validset,
                       checkpoint=args.checkpoint)
         model.train(epoch_num=args.epoch_num)
-        model.save_weights(args.weights)
+        if args.weights:
+            model.save_weights(args.weights)
     else:
         assert args.weights is not None, "No train file or weights provided!"
         weights = load_weights(args.weights)
