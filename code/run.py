@@ -3,6 +3,7 @@ import pickle
 import os
 from tqdm import tqdm
 from copy import deepcopy
+from prettytable import PrettyTable
 
 
 def read_labeled_data(file_path):
@@ -145,7 +146,7 @@ class Model:
         print("Dev num: %d; precision: %.4f; recall: %.4f; F1-score: %.4f" % (
             len(sentences), precision, recall, f1
         ))
-        return f1
+        return precision, recall, f1
 
     @staticmethod
     def _get_features(dataset, no_tqdm=False):
@@ -230,7 +231,8 @@ class Model:
         with open(file_path, 'wb') as f:
             pickle.dump(self.best_weight, f)
 
-    def train(self, epoch_num):
+    def train(self, epoch_num, log_file):
+        self.table = PrettyTable(['Epoch', 'Precision', 'Recall', 'F1-score'])
         for i in range(self.start_epoch, self.start_epoch + epoch_num):
             for features, labels in tqdm(list(zip(self.features, self.ys)),
                                          desc="Training for epoch %d" % i):
@@ -242,8 +244,9 @@ class Model:
             self.weights.final_update_sum()
             if self.do_validation:
                 dev_res = self.predict(self.valid_sentences)
-                f1 = Model.evaluate(dev_res, self.valid_sentences,
-                                    self.valid_labels)
+                precision, recall, f1 = Model.evaluate(dev_res, self.valid_sentences,
+                                                       self.valid_labels)
+                self.table.add_row([i, precision, recall, f1])
                 if f1 > self.best_score:
                     print('Best model from epoch %d.' % i)
                     self.best_score = f1
@@ -259,6 +262,7 @@ class Model:
                     "curr_epoch": i
                 }, open(self.checkpoint, "wb"))
                 print('Done')
+        print(self.table, file=open(log_file, 'w'))
 
 
 def main():
@@ -277,6 +281,8 @@ def main():
                         help="Epoch number of training.", default=50)
     parser.add_argument('--checkpoint', type=str,
                         help="Path for saving and load checkpoint")
+    parser.add_argument('--log_file', type=str,
+                        help="Path to log file.")
     args = parser.parse_args()
 
     if args.train_file:
@@ -287,7 +293,7 @@ def main():
             validset = None
         model = Model(trainset=trainset, validset=validset,
                       checkpoint=args.checkpoint)
-        model.train(epoch_num=args.epoch_num)
+        model.train(epoch_num=args.epoch_num, log_file=args.log_file)
         if args.weights:
             model.save_weights(args.weights)
     else:
