@@ -4,6 +4,8 @@ import os
 from tqdm import tqdm
 from copy import deepcopy
 from prettytable import PrettyTable
+import numpy as np
+np.random.seed(0)
 
 
 def read_labeled_data(file_path):
@@ -41,8 +43,9 @@ def load_weights(file_path):
 
 
 class Weights:
-    def __init__(self):
-        self._weights = {}
+    def __init__(self, features):
+        gauss_dist = np.random.normal(0, 1, len(features))
+        self._weights = {feature: number for feature, number in zip(features, gauss_dist)}
         self._sum_weights = {}
         self._curr_steps = {}
         self._step = 0
@@ -95,7 +98,7 @@ class Model:
             (self.features, self.all_features), self.ys = \
                 Model._get_features(trainset[0]), trainset[1]
             print("Feature num: %d" % len(self.all_features))
-            self.weights = Weights()
+            self.weights = Weights(self.all_features)
             assert len(self.features) == len(self.ys)
         if validset:
             self.valid_sentences, self.valid_labels = validset
