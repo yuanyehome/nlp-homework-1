@@ -43,9 +43,13 @@ def load_weights(file_path):
 
 
 class Weights:
-    def __init__(self, features):
+    def __init__(self, features, random_init):
         gauss_dist = np.random.normal(0, 1, len(features))
-        self._weights = {feature: number for feature, number in zip(features, gauss_dist)}
+        if random_init:
+            self._weights = {feature: number for feature,
+                             number in zip(features, gauss_dist)}
+        else:
+            self._weights = {}
         self._sum_weights = {}
         self._curr_steps = {}
         self._step = 0
@@ -84,7 +88,7 @@ class Weights:
 
 
 class Model:
-    def __init__(self, trainset=None, weights=None, validset=None, checkpoint=None):
+    def __init__(self, trainset=None, weights=None, validset=None, checkpoint=None, random_init=False):
         if not (trainset or weights):
             raise ValueError(
                 "Error in model initialize: no trainset or weights provided!"
@@ -98,7 +102,7 @@ class Model:
             (self.features, self.all_features), self.ys = \
                 Model._get_features(trainset[0]), trainset[1]
             print("Feature num: %d" % len(self.all_features))
-            self.weights = Weights(self.all_features)
+            self.weights = Weights(self.all_features, random_init=random_init)
             assert len(self.features) == len(self.ys)
         if validset:
             self.valid_sentences, self.valid_labels = validset
@@ -286,6 +290,8 @@ def main():
                         help="Path for saving and load checkpoint")
     parser.add_argument('--log_file', type=str,
                         help="Path to log file.")
+    parser.add_argument('--random_init', action="store_true",
+                        help="Whether initilize parameters using Gaussian Distribution.")
     args = parser.parse_args()
 
     if args.train_file:
@@ -295,7 +301,7 @@ def main():
         else:
             validset = None
         model = Model(trainset=trainset, validset=validset,
-                      checkpoint=args.checkpoint)
+                      checkpoint=args.checkpoint, random_init=args.random_init)
         model.train(epoch_num=args.epoch_num, log_file=args.log_file)
         if args.weights:
             model.save_weights(args.weights)
