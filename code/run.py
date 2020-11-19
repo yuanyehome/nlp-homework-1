@@ -201,18 +201,18 @@ class Model:
         return ' '.join(words)
 
     def _predict_one(self, x_features):
-        transitions = [[self.weights.get('%s:%s' % (str(i), str(j))) for j in range(4)]
+        label_score = [[self.weights.get('%s:%s' % (str(i), str(j))) for j in range(4)]
                        for i in range(4)]
-        emissions = [[
+        token_score = [[
             sum([self.weights.get('%s:%s' % (feature, str(label)))
                  for feature in token_features])
             for label in range(4)]
             for token_features in x_features]
-        dp_matrix = [[[score, None] for score in emissions[0]]]
+        dp_matrix = [[[score, None] for score in token_score[0]]]
         for i in range(len(x_features) - 1):
             dp_matrix.append(
-                [max([[dp_matrix[i][curr_label][0] + transitions[curr_label][next_label] +
-                       emissions[i + 1][next_label], curr_label]
+                [max([[dp_matrix[i][curr_label][0] + label_score[curr_label][next_label] +
+                       token_score[i + 1][next_label], curr_label]
                       for curr_label in range(4)
                       ])
                  for next_label in range(4)
