@@ -186,11 +186,9 @@ class Model:
                 '%s:%s' % (labels[i], labels[i + 1]), coef)
 
     def _decode(self, x):
-        """
-        Perhaps add more strict grammar?
-        """
         features = self._get_features([x], no_tqdm=True)[0][0]
         labels = self._predict_one(features)
+        # TODO: check the grammar of labels.
         word = ""
         words = []
         for token, label in zip(x, labels):
@@ -202,13 +200,13 @@ class Model:
 
     def _predict_one(self, x_features):
         label_score = [[self.weights.get('%s:%s' % (str(i), str(j))) for j in range(4)]
-                       for i in range(4)]
+                       for i in range(4)]  # The reward from edge features for each action.
         token_score = [[
             sum([self.weights.get('%s:%s' % (feature, str(label)))
                  for feature in token_features])
             for label in range(4)]
-            for token_features in x_features]
-        dp_matrix = [[[score, None] for score in token_score[0]]]
+            for token_features in x_features]  # The reward from node features for each action.
+        dp_matrix = [[[score, None] for score in token_score[0]]]  # Save the best path at each time step.
         for i in range(len(x_features) - 1):
             dp_matrix.append(
                 [max([[dp_matrix[i][curr_label][0] + label_score[curr_label][next_label] +
