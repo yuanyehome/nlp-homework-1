@@ -171,7 +171,6 @@ class Model:
                     x_r2 = x[i + 2] if i <= len(x) - 3 else '@'
                     _features = ['1' + x_0, '2' + x_l1, '3' + x_r1, '4' + x_l2 + x_l1,
                                  '5' + x_l1 + x_0, '6' + x_0 + x_r1, '7' + x_r1 + x_r2]
-                    curr_features.append(_features)
                 elif feature_type == "type2":
                     x_l1 = x[i - 1] if i >= 1 else '@'
                     x_0 = x[i]
@@ -195,9 +194,9 @@ class Model:
                                  '6' + x_l1 + x_0, '7' + x_0 + x_r1, '8' + x_r1 + x_r2, '9' + x_r2 + x_r3,
                                  '10' + x_l3 + x_l2 + x_l1, '11' + x_l2 + x_l1 + x_0, '12' + x_l1 + x_0 + x_r1,
                                  '13' + x_0 + x_r1 + x_r2, '14' + x_r1 + x_r2 + x_r3]
-                    curr_features.append(_features)
                 else:
                     raise ValueError
+                curr_features.append(_features)
                 all_features += ['%s:%s' % (feature, str(label))
                                  for feature in _features
                                  for label in range(4)]
