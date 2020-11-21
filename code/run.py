@@ -185,10 +185,27 @@ class Model:
             self.weights.update_weights(
                 '%s:%s' % (labels[i], labels[i + 1]), coef)
 
+    def _check_grammar(seq, accepted_tokens):
+        if len(seq) == 0:
+            if accepted_tokens == [0, 3]:
+                return True
+            else:
+                return False
+        if seq[0] in accepted_tokens:
+            curr_token = seq[0]
+            if curr_token in [0, 2]:
+                next_possible_tokens = [1, 2]
+            elif curr_token in [1, 3]:
+                next_possible_tokens = [0, 3]
+            else:
+                raise ValueError
+            return Model._check_grammar(seq[1:], next_possible_tokens)
+        return False
+
     def _decode(self, x):
         features = self._get_features([x], no_tqdm=True)[0][0]
         labels = self._predict_one(features)
-        # TODO: check the grammar of labels.
+        correct_grammar = Model._check_grammar(labels, [0, 3])
         word = ""
         words = []
         for token, label in zip(x, labels):
@@ -196,7 +213,7 @@ class Model:
             if label in [1, 3]:
                 words.append(word)
                 word = ""
-        return ' '.join(words)
+        return ' '.join(words), correct_grammar
 
     def _predict_one(self, x_features):
         label_score = [[self.weights.get('%s:%s' % (str(i), str(j))) for j in range(4)]
@@ -228,8 +245,10 @@ class Model:
     def predict(self, sentences):
         self.weights.prepare_predict_weights()
         res = [self._decode(x) for x in tqdm(sentences, desc="Predicting")]
+        grammar_correct_rate = sum([item[1] for item in res]) / len(res)
+        res = [item[0] for item in res]
         self.weights.reset_weights()
-        return res
+        return res, grammar_correct_rate
 
     def save_weights(self, file_path):
         print('Best F1 score is %.4f' % self.best_score)
@@ -237,7 +256,7 @@ class Model:
             pickle.dump(self.best_weight, f)
 
     def train(self, epoch_num, log_file):
-        self.table = PrettyTable(['Epoch', 'Precision', 'Recall', 'F1-score'])
+        self.table = PrettyTable(['Epoch', 'Precision', 'Recall', 'F1-score', 'Grammar correct rate'])
         for i in range(self.start_epoch, self.start_epoch + epoch_num):
             for features, labels in tqdm(list(zip(self.features, self.ys)),
                                          desc="Training for epoch %d" % i):
@@ -248,10 +267,11 @@ class Model:
                 self.weights.save_history()
             self.weights.final_update_sum()
             if self.do_validation:
-                dev_res = self.predict(self.valid_sentences)
+                dev_res, grammar_correct_rate = self.predict(self.valid_sentences)
                 precision, recall, f1 = Model.evaluate(dev_res, self.valid_sentences,
                                                        self.valid_labels)
-                self.table.add_row([i, precision, recall, f1])
+                self.table.add_row([i, precision, recall, f1, grammar_correct_rate])
+                print('Grammar correct rate in this epoch: %.6f' % grammar_correct_rate)
                 if f1 > self.best_score:
                     print('Best model from epoch %d.' % i)
                     self.best_score = f1
@@ -310,13 +330,13 @@ def main():
         if args.valid_file:
             print('Validating for this model...')
             sentences, labels = read_labeled_data(args.valid_file)
-            res = model.predict(sentences)
+            res, grammar_correct_rate = model.predict(sentences)
             Model.evaluate(res, sentences, labels)
 
     if args.predict_file:
         assert args.output_path, 'No prediction output specified!'
         predict_data, _ = read_labeled_data(args.predict_file)
-        res = model.predict(predict_data)
+        res, grammar_correct_rate = model.predict(predict_data)
         with open(args.output_path, 'w') as f:
             f.write('\n'.join(res))
 
