@@ -88,7 +88,7 @@ class Weights:
 
 
 class Model:
-    def __init__(self, trainset=None, weights=None, validset=None, checkpoint=None, random_init=False):
+    def __init__(self, feature_type, trainset=None, weights=None, validset=None, checkpoint=None, random_init=False):
         if not (trainset or weights):
             raise ValueError(
                 "Error in model initialize: no trainset or weights provided!"
@@ -98,9 +98,10 @@ class Model:
         self.best_weight, self.best_score = None, 0
         self.checkpoint = checkpoint
         self.start_epoch = 0
+        self.feature_type = feature_type
         if trainset:
             (self.features, self.all_features), self.ys = \
-                Model._get_features(trainset[0]), trainset[1]
+                Model._get_features(trainset[0], feature_type), trainset[1]
             print("Feature num: %d" % len(self.all_features))
             self.weights = Weights(self.all_features, random_init=random_init)
             assert len(self.features) == len(self.ys)
@@ -156,20 +157,47 @@ class Model:
         return precision, recall, f1
 
     @staticmethod
-    def _get_features(dataset, no_tqdm=False):
+    def _get_features(dataset, feature_type, no_tqdm=False):
         sentence_features = []
         all_features = []
         for x in tqdm(dataset, desc="Generating features", disable=no_tqdm):
             curr_features = []
             for i in range(len(x)):
-                x_l2 = x[i - 2] if i >= 2 else '@'
-                x_l1 = x[i - 1] if i >= 1 else '@'
-                x_0 = x[i]
-                x_r1 = x[i + 1] if i <= len(x) - 2 else '@'
-                x_r2 = x[i + 2] if i <= len(x) - 3 else '@'
-                _features = ['1' + x_0, '2' + x_l1, '3' + x_r1, '4' + x_l2 + x_l1,
-                             '5' + x_l1 + x_0, '6' + x_0 + x_r1, '7' + x_r1 + x_r2]
-                curr_features.append(_features)
+                if feature_type == "type1":
+                    x_l2 = x[i - 2] if i >= 2 else '@'
+                    x_l1 = x[i - 1] if i >= 1 else '@'
+                    x_0 = x[i]
+                    x_r1 = x[i + 1] if i <= len(x) - 2 else '@'
+                    x_r2 = x[i + 2] if i <= len(x) - 3 else '@'
+                    _features = ['1' + x_0, '2' + x_l1, '3' + x_r1, '4' + x_l2 + x_l1,
+                                 '5' + x_l1 + x_0, '6' + x_0 + x_r1, '7' + x_r1 + x_r2]
+                    curr_features.append(_features)
+                elif feature_type == "type2":
+                    x_l1 = x[i - 1] if i >= 1 else '@'
+                    x_0 = x[i]
+                    x_r1 = x[i + 1] if i <= len(x) - 2 else '@'
+                    _features = ['1' + x_0, '2' + x_l1, '3' + x_r1]
+                elif feature_type == "type3":
+                    x_l1 = x[i - 1] if i >= 1 else '@'
+                    x_0 = x[i]
+                    x_r1 = x[i + 1] if i <= len(x) - 2 else '@'
+                    _features = ['1' + x_0, '2' + x_l1, '3' + x_r1,
+                                 '4' + x_l1 + x_0, '5' + x_0 + x_r1]
+                elif feature_type == "type4":
+                    x_l3 = x[i - 3] if i >= 3 else '@'
+                    x_l2 = x[i - 2] if i >= 2 else '@'
+                    x_l1 = x[i - 1] if i >= 1 else '@'
+                    x_0 = x[i]
+                    x_r1 = x[i + 1] if i <= len(x) - 2 else '@'
+                    x_r2 = x[i + 2] if i <= len(x) - 3 else '@'
+                    x_r3 = x[i + 3] if i <= len(x) - 4 else '@'
+                    _features = ['1' + x_0, '2' + x_l1, '3' + x_r1, '4' + x_l3 + x_l2, '5' + x_l2 + x_l1, 
+                                 '6' + x_l1 + x_0, '7' + x_0 + x_r1, '8' + x_r1 + x_r2, '9' + x_r2 + x_r3,
+                                 '10' + x_l3 + x_l2 + x_l1, '11' + x_l2 + x_l1 + x_0, '12' + x_l1 + x_0 + x_r1,
+                                 '13' + x_0 + x_r1 + x_r2, '14' + x_r1 + x_r2 + x_r3]
+                    curr_features.append(_features)
+                else:
+                    raise ValueError
                 all_features += ['%s:%s' % (feature, str(label))
                                  for feature in _features
                                  for label in range(4)]
@@ -203,7 +231,8 @@ class Model:
         return False
 
     def _decode(self, x):
-        features = self._get_features([x], no_tqdm=True)[0][0]
+        features = Model._get_features(
+            [x], self.feature_type, no_tqdm=True)[0][0]
         labels = self._predict_one(features)
         correct_grammar = Model._check_grammar(labels, [0, 3])
         word = ""
@@ -223,7 +252,8 @@ class Model:
                  for feature in token_features])
             for label in range(4)]
             for token_features in x_features]  # The reward from node features for each action.
-        dp_matrix = [[[score, None] for score in token_score[0]]]  # Save the best path at each time step.
+        # Save the best path at each time step.
+        dp_matrix = [[[score, None] for score in token_score[0]]]
         for i in range(len(x_features) - 1):
             dp_matrix.append(
                 [max([[dp_matrix[i][curr_label][0] + label_score[curr_label][next_label] +
@@ -256,7 +286,8 @@ class Model:
             pickle.dump(self.best_weight, f)
 
     def train(self, epoch_num, log_file):
-        self.table = PrettyTable(['Epoch', 'Precision', 'Recall', 'F1-score', 'Grammar correct rate'])
+        self.table = PrettyTable(
+            ['Epoch', 'Precision', 'Recall', 'F1-score', 'Grammar correct rate'])
         for i in range(self.start_epoch, self.start_epoch + epoch_num):
             for features, labels in tqdm(list(zip(self.features, self.ys)),
                                          desc="Training for epoch %d" % i):
@@ -267,11 +298,14 @@ class Model:
                 self.weights.save_history()
             self.weights.final_update_sum()
             if self.do_validation:
-                dev_res, grammar_correct_rate = self.predict(self.valid_sentences)
+                dev_res, grammar_correct_rate = self.predict(
+                    self.valid_sentences)
                 precision, recall, f1 = Model.evaluate(dev_res, self.valid_sentences,
                                                        self.valid_labels)
-                self.table.add_row([i, precision, recall, f1, grammar_correct_rate])
-                print('Grammar correct rate in this epoch: %.6f' % grammar_correct_rate)
+                self.table.add_row(
+                    [i, precision, recall, f1, grammar_correct_rate])
+                print('Grammar correct rate in this epoch: %.6f' %
+                      grammar_correct_rate)
                 if f1 > self.best_score:
                     print('Best model from epoch %d.' % i)
                     self.best_score = f1
@@ -310,6 +344,8 @@ def main():
                         help="Path to log file.")
     parser.add_argument('--random_init', action="store_true",
                         help="Whether initilize parameters using Gaussian Distribution.")
+    parser.add_argument('--feature_type', type=str, required=True, choices=['type1', 'type2', 'type3', 'type4'],
+                        help="Choose what features to use.")
     args = parser.parse_args()
 
     if args.train_file:
@@ -319,14 +355,14 @@ def main():
         else:
             validset = None
         model = Model(trainset=trainset, validset=validset,
-                      checkpoint=args.checkpoint, random_init=args.random_init)
+                      checkpoint=args.checkpoint, random_init=args.random_init, feature_type=args.feature_type)
         model.train(epoch_num=args.epoch_num, log_file=args.log_file)
         if args.weights:
             model.save_weights(args.weights)
     else:
         assert args.weights is not None, "No train file or weights provided!"
         weights = load_weights(args.weights)
-        model = Model(weights=weights)
+        model = Model(weights=weights, feature_type=args.feature_type)
         if args.valid_file:
             print('Validating for this model...')
             sentences, labels = read_labeled_data(args.valid_file)
