@@ -115,6 +115,8 @@ class Model:
             self.weights, self.best_score, self.best_weight = \
                 ckpt['model'], ckpt['best_score'], ckpt['best_model']
             self.start_epoch = ckpt['curr_epoch'] + 1
+            print('Overridding feature type from checkpoint. Using %s' % ckpt['feature_type'])
+            self.feature_type = ckpt['feature_type']
 
     @staticmethod
     def _gen_words(sentence, labels):
@@ -282,7 +284,10 @@ class Model:
     def save_weights(self, file_path):
         print('Best F1 score is %.4f' % self.best_score)
         with open(file_path, 'wb') as f:
-            pickle.dump(self.best_weight, f)
+            pickle.dump({
+                'weight': self.best_weight,
+                'feature_type': self.feature_type
+            }, f)
 
     def train(self, epoch_num, log_file):
         self.table = PrettyTable(
@@ -317,7 +322,8 @@ class Model:
                     "model": self.weights,
                     "best_score": self.best_score,
                     "best_model": self.best_weight,
-                    "curr_epoch": i
+                    "curr_epoch": i,
+                    "feature_type": self.feature_type
                 }, open(self.checkpoint, "wb"))
                 print('Done')
         print(self.table, file=open(log_file, 'w'))
@@ -361,6 +367,8 @@ def main():
     else:
         assert args.weights is not None, "No train file or weights provided!"
         weights = load_weights(args.weights)
+        # weights, args.feature_type = weights['weights'], weights['feature_type']
+        # print('Override the feature type using %s' % args.feature_type)
         model = Model(weights=weights, feature_type=args.feature_type)
         if args.valid_file:
             print('Validating for this model...')
