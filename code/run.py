@@ -367,8 +367,8 @@ def main():
     else:
         assert args.weights is not None, "No train file or weights provided!"
         weights = load_weights(args.weights)
-        # weights, args.feature_type = weights['weights'], weights['feature_type']
-        # print('Override the feature type using %s' % args.feature_type)
+        weights, args.feature_type = weights['weights'], weights['feature_type']
+        print('Override the feature type using %s' % args.feature_type)
         model = Model(weights=weights, feature_type=args.feature_type)
         if args.valid_file:
             print('Validating for this model...')
