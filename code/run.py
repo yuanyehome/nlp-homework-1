@@ -78,11 +78,15 @@ class Weights:
         return self._weights[key]
 
     def prepare_predict_weights(self):
+        """Average the histories.
+        """
         self._tmp_weights = deepcopy(self._weights)
         self._weights = {
             key: self._sum_weights[key] / self._step for key in self._sum_weights.keys()}
 
     def reset_weights(self):
+        """Reset the weights to current weights to continue training.
+        """
         self._weights = deepcopy(self._tmp_weights)
         self._tmp_weights = None
 
@@ -120,6 +124,8 @@ class Model:
 
     @staticmethod
     def _gen_words(sentence, labels):
+        """Generate the segmentation result from labels.
+        """
         word = ""
         words = []
         for token, label in zip(sentence, labels):
@@ -131,6 +137,8 @@ class Model:
 
     @staticmethod
     def _gen_loc_words(word_list: list):
+        """Generate a the location word pairs.
+        """
         loc = 0
         res = []
         for word in word_list:
@@ -215,6 +223,8 @@ class Model:
                 '%s:%s' % (labels[i], labels[i + 1]), coef)
 
     def _check_grammar(seq, accepted_tokens):
+        """Check the grammar of a given label sequence.
+        """
         if len(seq) == 0:
             if accepted_tokens == [0, 3]:
                 return True
@@ -232,6 +242,8 @@ class Model:
         return False
 
     def _decode(self, x):
+        """Generate the label sequence of one sentence.
+        """
         features = Model._get_features(
             [x], self.feature_type, no_tqdm=True)[0][0]
         labels = self._predict_one(features)
@@ -246,6 +258,8 @@ class Model:
         return ' '.join(words), correct_grammar
 
     def _predict_one(self, x_features):
+        """Predict the labels from the given features of a single sentence.
+        """
         label_score = [[self.weights.get('%s:%s' % (str(i), str(j))) for j in range(4)]
                        for i in range(4)]  # The reward from edge features for each action.
         token_score = [[
